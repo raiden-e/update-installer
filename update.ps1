@@ -19,13 +19,13 @@ function Start-Update {
 
     $Code = {
         param ($ScriptPath, $updatePath)
+        ${function:Copy-File} = ${using:function:Copy-File}
         Write-Verbose "Init: $ScriptPath"
+
         $name, $latest, $searchTerm, $link = . $ScriptPath
         $name, $latest, $searchTerm, $link | ForEach-Object {
             if ([string]::isNullOrWhiteSpace($_)) { throw "Returned invalid Value: $ScriptPath" }
         }
-
-        # Write-Host "`nName: $name`nLatest: $latest`nTerm: $searchTerm`nLink: $link"
 
         $local = Get-ChildItem -Path $updatePath -File -Filter $searchTerm
         if ($local) {
@@ -35,21 +35,31 @@ function Start-Update {
             }
         }
 
-        Write-Host "Updating: $name" -ForegroundColor Cyan
+        Write-Host "Updating: $name, Link: {$link}" -ForegroundColor Cyan
         try {
-            Start-BitsTransfer $link -Destination "$updatePath\$latest"
+            Copy-File -From $link -To "$updatePath\$latest"
         } catch {
-            Write-Host "BitsTransfer failed"
-            $null = Invoke-WebRequest -Uri $link -UseBasicParsing -OutFile "$($Path.Name)\$latest"
+            $host.UI.WriteErrorLine("Copy-File failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)")
+            return
         }
-        if ($? -and $local) {
+        if ($local) {
             Remove-Item $local.FullName
         }
     }
-    $jobs = @()
+    [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
+    [System.Collections.ArrayList]$finished = [System.Collections.ArrayList]::new()
+
     foreach ($script in (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName) {
-        $jobs += Start-Job -ArgumentList $script, $Path -ScriptBlock $Code -Verbose
+        $jobs.Add((Start-Job -ArgumentList $script, $Path -ScriptBlock $Code -Verbose))
     }
-    $null = Wait-Job -Job $jobs
-    Receive-Job -Job $jobs
+
+    while ('Running' -in $jobs.State) {
+        $jobs | Wait-Job -Timeout 2
+        $jobs | Show-JobProgress
+        foreach ($job in ($jobs | Where-Object { $_.State -eq "Completed" })) {
+            Receive-Job $job
+            $finished += $job
+            $jobs.Remove($job)
+        }
+    }
 }
