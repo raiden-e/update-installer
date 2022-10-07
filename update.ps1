@@ -1,4 +1,3 @@
-
 function Start-Update {
     [CmdletBinding()]
     param (
@@ -17,49 +16,89 @@ function Start-Update {
         return
     }
 
-    $Code = {
+    $checkCode = {
         param ($ScriptPath, $updatePath)
-        ${function:Copy-File} = ${using:function:Copy-File}
-        Write-Verbose "Init: $ScriptPath"
 
         $name, $latest, $searchTerm, $link = . $ScriptPath
         $name, $latest, $searchTerm, $link | ForEach-Object {
             if ([string]::isNullOrWhiteSpace($_)) { throw "Returned invalid Value: $ScriptPath" }
         }
 
-        $local = Get-ChildItem -Path $updatePath -File -Filter $searchTerm
-        if ($local) {
-            if ($local.name -eq $latest) {
-                Write-Host "latest: $name" -ForegroundColor Green
-                return
+        return @($name, $latest, $searchTerm, $link)
+    }
+
+    function Watch-Job {
+        [CmdletBinding()]
+        param (
+            [Parameter(Mandatory, ValueFromPipeline)]
+            [ValidateNotNullOrEmpty()]
+            [System.Management.Automation.Job[]]
+            $InputJobs
+        )
+        [System.Collections.ArrayList]$results = [System.Collections.ArrayList]::new()
+
+        function collect {
+            [CmdletBinding()]
+            param ()
+            foreach ($job in ($InputJobs | Where-Object { $_.State -eq "Completed" })) {
+                $result = Receive-Job $job -Wait -AutoRemoveJob
+                if ($result.Exception) {
+                    Write-Error $result
+                } else {
+                    $null = $results.Add($result)
+                }
             }
         }
 
-        Write-Host "Updating: $name, Link: {$link}" -ForegroundColor Cyan
+        do {
+            collect
+            Start-Sleep 2
+        } while ('Running' -in $InputJobs.State)
+        collect
+
+        return $results
+    }
+
+    [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
+    foreach ($script in (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName) {
+        $null = $jobs.Add((Start-Job -ArgumentList $script, $Path -ScriptBlock $checkCode -Verbose))
+    }
+
+    $results = Watch-Job $jobs
+
+    $downloadJob = {
+        param(
+            $from,
+            $to,
+            $local
+        )
+        ${function:Copy-File} = ${using:function:Copy-File}
         try {
-            Copy-File -From $link -To "$updatePath\$latest"
+            Copy-File -From $from -To $to
         } catch {
             $host.UI.WriteErrorLine("Copy-File failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)")
-            return
+            return $_
         }
         if ($local) {
             Remove-Item $local.FullName
         }
     }
-    [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
-    [System.Collections.ArrayList]$finished = [System.Collections.ArrayList]::new()
 
-    foreach ($script in (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName) {
-        $jobs.Add((Start-Job -ArgumentList $script, $Path -ScriptBlock $Code -Verbose))
-    }
-
-    while ('Running' -in $jobs.State) {
-        $jobs | Wait-Job -Timeout 2
-        $jobs | Show-JobProgress
-        foreach ($job in ($jobs | Where-Object { $_.State -eq "Completed" })) {
-            Receive-Job $job
-            $finished += $job
-            $jobs.Remove($job)
+    $null = $jobs.Clear()
+    Write-Host $results
+    foreach ($result in $results) {
+        # $name, $latest, $searchTerm, $link = $result
+        $local = Get-ChildItem -Path $updatePath -File -Filter $result[2]
+        if ($local) {
+            if ($local.Name -eq $result[1]) {
+                Write-Host "latest: $($result[0])" -ForegroundColor Green
+                continue
+            }
         }
+        Write-Host "Updating: $($result[0]), Link: {$($result[3])}" -ForegroundColor Cyan
+
+        $null = $jobs.Add((Start-Job -ArgumentList $result[3], "$updatePath\$($result[1])", $local -ScriptBlock $downloadJob -Verbose))
     }
+
+    return Watch-Job $jobs
 }
