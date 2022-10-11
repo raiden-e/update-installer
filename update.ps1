@@ -17,27 +17,30 @@ function Start-Update {
         return
     }
 
-    $Code = {
-        param ($ScriptPath, $updatePath)
-        ${function:Copy-File} = ${using:function:Copy-File}
+    $checkCode = {
+        param ($ScriptPath)
         Write-Verbose "Init: $ScriptPath"
 
         $name, $latest, $searchTerm, $link = . $ScriptPath
         $name, $latest, $searchTerm, $link | ForEach-Object {
             if ([string]::isNullOrWhiteSpace($_)) { throw "Returned invalid Value: $ScriptPath" }
         }
+        return $name, $latest, $searchTerm, $link
+    }
 
-        $local = Get-ChildItem -Path $updatePath -File -Filter $searchTerm
-        if ($local) {
-            if ($local.name -eq $latest) {
-                Write-Host "latest: $name" -ForegroundColor Green
-                return
-            }
-        }
+    [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
+    [System.Collections.ArrayList]$finished = [System.Collections.ArrayList]::new()
+    foreach ($script in (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName) {
+        $null = $jobs.Add((Start-Job -ArgumentList $script -ScriptBlock $checkCode -Verbose))
+    }
+    $results = Wait-JobWithProgress -InputObject $jobs -PassThru
 
-        Write-Host "Updating: $name, Link: {$link}" -ForegroundColor Cyan
+    $downloadCode = {
+        param($from, $to)
+        ${function:Copy-File} = ${using:function:Copy-File}
+
         try {
-            Copy-File -From $link -To "$updatePath\$latest"
+            Copy-File -From $from -To $to
         } catch {
             $host.UI.WriteErrorLine("Copy-File failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)")
             return
@@ -46,20 +49,18 @@ function Start-Update {
             Remove-Item $local.FullName
         }
     }
-    [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
-    [System.Collections.ArrayList]$finished = [System.Collections.ArrayList]::new()
-
-    foreach ($script in (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName) {
-        $jobs.Add((Start-Job -ArgumentList $script, $Path -ScriptBlock $Code -Verbose))
-    }
-
-    while ('Running' -in $jobs.State) {
-        $jobs | Wait-Job -Timeout 2
-        $jobs | Show-JobProgress
-        foreach ($job in ($jobs | Where-Object { $_.State -eq "Completed" })) {
-            Receive-Job $job
-            $finished += $job
-            $jobs.Remove($job)
+    $null = $jobs.Clear()
+    foreach ($result in $results) {
+        $local = Get-ChildItem -Path $Path -File -Filter $result[2]
+        if ($local) {
+            if ($local.name -eq $result[1]) {
+                Write-Host "latest: $($result[0])" -ForegroundColor Green
+                continue
+            }
         }
+        $to = "$Path\$($result[1])"
+        Write-Host "Updating: $($result[0]), Link: {$($result[3])} to: {$to}" -ForegroundColor Cyan
+        $null = $jobs.Add((Start-Job -ArgumentList $result[3], $to -ScriptBlock $downloadCode -Verbose))
     }
+    Wait-JobWithProgress -InputObject $jobs -PassThru
 }
