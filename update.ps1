@@ -13,7 +13,8 @@ function Start-Update {
             throw "Path must be a directory"
         }
     }
-    if (!$Force -and !(Read-Timestamp "$PSScriptRoot\.util\timestamp.txt")) {
+    if (!$Force -and !(Read-Timestamp "$Path\timestamp.txt")) {
+        Write-Verbose "Timestamp is current"
         return
     }
 
@@ -21,7 +22,7 @@ function Start-Update {
         param ($ScriptPath)
         Write-Verbose "Init: $ScriptPath"
 
-        $name, $latest, $searchTerm, $link = . $ScriptPath
+        $name, $latest, $searchTerm, $link, $cred = . $ScriptPath
         $name, $latest, $searchTerm, $link | ForEach-Object {
             if ([string]::isNullOrWhiteSpace($_)) { throw "Returned invalid Value: $ScriptPath" }
         }
@@ -29,18 +30,23 @@ function Start-Update {
     }
 
     [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
-    [System.Collections.ArrayList]$finished = [System.Collections.ArrayList]::new()
+
     foreach ($script in (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName) {
         $null = $jobs.Add((Start-Job -ArgumentList $script -ScriptBlock $checkCode -Verbose))
     }
-    $results = Wait-JobWithProgress -InputObject $jobs -PassThru
+    Write-Verbose "Jobs: $($jobs.Count)"
+    if ($jobs.Count -eq 0) {
+        Write-Warning "No update scripts!"
+        return
+    }
+    $results = Wait-JobWithProgress -Jobs $jobs -PassThru
 
     $downloadCode = {
-        param($from, $to)
+        param($from, $to, $local, $cred)
         ${function:Copy-File} = ${using:function:Copy-File}
 
         try {
-            Copy-File -From $from -To $to
+            Copy-File -From $from -To $to -Credential $cred
         } catch {
             $host.UI.WriteErrorLine("Copy-File failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)")
             return
@@ -60,7 +66,16 @@ function Start-Update {
         }
         $to = "$Path\$($result[1])"
         Write-Host "Updating: $($result[0]), Link: {$($result[3])} to: {$to}" -ForegroundColor Cyan
-        $null = $jobs.Add((Start-Job -ArgumentList $result[3], $to -ScriptBlock $downloadCode -Verbose))
+        $null = $jobs.Add((Start-Job -ArgumentList $result[3], $to, $local, $cred -ScriptBlock $downloadCode -Verbose))
     }
-    Wait-JobWithProgress -InputObject $jobs -PassThru
+    Write-Verbose "Downloads: $($jobs.Count)"
+    if ($jobs.Count -eq 0) {
+        return
+    }
+    Wait-JobWithProgress -Jobs $jobs -PassThru
+    try {
+        Get-Date -Format "yyyyMMdd" | Out-File "$Path\timestamp.txt" -Encoding utf8 -Force
+    } catch {
+        Write-Warning "Couldnt write timestamp"
+    }
 }
