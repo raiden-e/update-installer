@@ -73,9 +73,5 @@ function Start-Update {
         return
     }
     Wait-JobWithProgress -Jobs $jobs -PassThru
-    try {
-        Get-Date -Format "yyyyMMdd" | Out-File "$Path\timestamp.txt" -Encoding utf8 -Force
-    } catch {
-        Write-Warning "Couldnt write timestamp"
-    }
+    Get-Date -Format "yyyyMMdd" | Out-File "$Path\timestamp.txt" -Encoding utf8 -Force -ErrorAction Stop
 }
