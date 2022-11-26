@@ -9,7 +9,7 @@ function Copy-File {
         [pscredential]$Credential,
         # Optional Id if you are using multiple progressbars
         [int]$ProgressbarId = 0
-    );
+    );dsj
 
     try {
         $hash = [System.BitConverter]::ToString([System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($From + $To))).Replace("-", "");
@@ -30,17 +30,13 @@ function Copy-File {
         }
 
         if (!($job)) {
-            # Write-Progress -Id $ProgressbarId -Activity "Starting...";
             $job = Start-BitsTransfer -Source $From -Destination $To `
                 -Description "Moving: $From => $To" `
                 -DisplayName "copy_$hash" -Credential $Credential `
                 -ErrorAction Stop -Asynchronous;
         }
 
-        # Start stopwatch
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-
-        $fileName = [IO.Path]::GetFileName($From);
         while ($job.JobState.ToString() -ne "Transferred") {
             if ($job.JobState.ToString() -notin "Connecting", "Transferring", "Transferred") {
                 throw $job.JobState.ToString() + " unexpected BITS state.";
@@ -59,6 +55,5 @@ function Copy-File {
         if ($job) {
             Complete-BitsTransfer -BitsJob $job;
         }
-        # Write-Progress -Id $ProgressbarId -Activity "Completed" -Completed;
     }
 }

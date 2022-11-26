@@ -65,6 +65,10 @@ function Start-Update {
             }
         }
         $to = "$Path\$($result[1])"
+        $cred = $null
+        if ($result.length -ge 5) {
+            $cred = $result[4]
+        }
         Write-Host "Updating: $($result[0]), Link: {$($result[3])} to: {$to}" -ForegroundColor Cyan
         $null = $jobs.Add((Start-Job -ArgumentList $result[3], $to, $local, $cred -ScriptBlock $downloadCode -Verbose))
     }
