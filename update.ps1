@@ -26,7 +26,7 @@ function Start-Update {
         $name, $latest, $searchTerm, $link | ForEach-Object {
             if ([string]::isNullOrWhiteSpace($_)) { throw "Returned invalid Value: $ScriptPath" }
         }
-        return $name, $latest, $searchTerm, $link
+        return $name, $latest, $searchTerm, $link, $cred
     }
 
     [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
