@@ -9,7 +9,7 @@ function Copy-File {
         [pscredential]$Credential,
         # Optional Id if you are using multiple progressbars
         [int]$ProgressbarId = 0
-    );dsj
+    );
 
     try {
         $hash = [System.BitConverter]::ToString([System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($From + $To))).Replace("-", "");
