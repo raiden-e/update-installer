@@ -6,9 +6,7 @@ function Copy-File {
         # Target destination
         [string]$To,
         # Credentialy if you need some
-        [pscredential]$Credential,
-        # Optional Id if you are using multiple progressbars
-        [int]$ProgressbarId = 0
+        [pscredential]$Credential
     );
 
     try {

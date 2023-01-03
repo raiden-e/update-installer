@@ -1,6 +1,7 @@
 function Read-Timestamp {
     [CmdletBinding()]
     param (
+        [Parameter(Mandatory, ValueFromPipeline)]
         $Path
     )
     if (Test-Path $Path) {

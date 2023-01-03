@@ -1,10 +1,10 @@
 function Wait-JobWithProgress {
     [CmdletBinding()]
     param(
-        [parameter(Mandatory, ValueFromPipeline)]
+        [Parameter(Mandatory, ValueFromPipeline)]
         [System.Collections.ArrayList]$Jobs,
 
-        [parameter()]
+        [Parameter()]
         [int] $TimeOut = [int]::MaxValue,
 
         [switch]$PassThru
@@ -47,7 +47,7 @@ function Wait-JobWithProgress {
     } while ($timer.Elapsed.Seconds -le $TimeOut -and $Jobs)
 
     # Stop the jobs not yet Completed and remove them
-    $Jobs | Stop-Job -PassThru | ForEach-Object {
+    $Jobs | Stop-Job -PassThru | % {
         Write-Warning ("Job [#{0} - {1}] did not complete on time and was removed..." -f $_.Id, $_.Name)
         Remove-Job $_
     }
