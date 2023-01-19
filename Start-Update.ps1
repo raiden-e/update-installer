@@ -31,7 +31,12 @@ function Start-Update {
 
     [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
 
-    foreach ($script in (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName) {
+    $scripts = (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName
+    if ($Force) {
+        $scripts += (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1.disabled").FullName
+    }
+
+    foreach ($script in $scripts) {
         $null = $jobs.Add((Start-Job -ArgumentList $script -ScriptBlock $checkCode -Verbose))
     }
     Write-Verbose "Jobs: $($jobs.Count)"
