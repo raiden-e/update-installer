@@ -33,7 +33,7 @@ function Start-Update {
 
     $scripts = (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName
     if ($Force) {
-        $scripts += (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1.disabled").FullName
+        $scripts = ($scripts + (Get-ChildItem "$PSScriptRoot\.util\scripts\disabled" -Filter "*.ps1").FullName) | Sort-Object
     }
 
     foreach ($script in $scripts) {
