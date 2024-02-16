@@ -3,7 +3,8 @@ function Start-Update {
     [CmdletBinding()]
     param (
         $Path = "$PSScriptRoot\update",
-        [switch]$Force
+        [switch]$Force,
+        [switch]$enableAll
     )
 
     Get-ChildItem "$PSScriptRoot\.util" -Filter "*.ps1" | ForEach-Object { . $_.FullName }
@@ -32,7 +33,7 @@ function Start-Update {
     [System.Collections.ArrayList]$jobs = [System.Collections.ArrayList]::new()
 
     $scripts = (Get-ChildItem "$PSScriptRoot\.util\scripts" -Filter "*.ps1").FullName
-    if ($Force) {
+    if ($enableAll) {
         $scripts = ($scripts + (Get-ChildItem "$PSScriptRoot\.util\scripts\disabled" -Filter "*.ps1").FullName) | Sort-Object
     }
 

@@ -37,7 +37,7 @@ function Copy-File {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         while ($job.JobState.ToString() -ne "Transferred") {
             if ($job.JobState.ToString() -notin "Connecting", "Transferring", "Transferred") {
-                throw $job.JobState.ToString() + " unexpected BITS state.";
+                throw "Unexpected BITS state: " + $job.JobState.ToString();
             }
             if ($isPsCore) {
                 $job = Get-BitsTransfer -Name $jobName -ErrorAction SilentlyContinue;

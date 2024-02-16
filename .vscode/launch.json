@@ -5,11 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "PowerShell: Launch Current File",
+            "name": "PowerShell: Start-Update",
             "type": "PowerShell",
             "request": "launch",
-            "script": ". ${file}; Start-Update",
-            "cwd": "${file}"
+            "script": ". .\\Start-Update.ps1; Start-Update -Path  \"E:\\network\\installer\\_updated\" -Force",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
