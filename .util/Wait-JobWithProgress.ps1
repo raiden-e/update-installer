@@ -31,19 +31,33 @@ function Wait-JobWithProgress {
         if ($id -eq [System.Threading.WaitHandle]::WaitTimeout) { continue }
         # output this job
         try {
-            if ($PassThru) {
-                $null = $results.Add((Receive-Job $Jobs[$id]))
+            $job = $Jobs[$id]
+            if ($job.State -eq 'Failed') {
+                $errorInfo = Receive-Job $job 2>&1
+                Write-Warning "Job #$($job.Id) failed: $errorInfo"
+                if ($PassThru) {
+                    $null = $results.Add($null)  # Add null to maintain order
+                }
             } else {
-                Receive-Job $Jobs[$id]
+                if ($PassThru) {
+                    $jobResult = Receive-Job $job
+                    $null = $results.Add($jobResult)
+                } else {
+                    Receive-Job $job
+                }
             }
         } catch {
             Write-Progress @progress -Completed
             $host.UI.WriteErrorLine("Job failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)")
+            if ($PassThru) {
+                $null = $results.Add($null)  # Add null to maintain order
+            }
+        } finally {
+            # remove this job
+            Remove-Job $Jobs[$id] -Force -ErrorAction SilentlyContinue
+            $Jobs.RemoveAt($id)
+            $completed++
         }
-
-        # remove this job
-        $Jobs.RemoveAt($id)
-        $completed++
     } while ($timer.Elapsed.Seconds -le $TimeOut -and $Jobs)
 
     # Stop the jobs not yet Completed and remove them

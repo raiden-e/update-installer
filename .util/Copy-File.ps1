@@ -35,9 +35,11 @@ function Copy-File {
         }
 
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $maxWaitMinutes = 30
         while ($job.JobState.ToString() -ne "Transferred") {
             if ($job.JobState.ToString() -notin "Connecting", "Transferring", "Transferred") {
-                throw "Unexpected BITS state: " + $job.JobState.ToString();
+                $errorMsg = if ($job.ErrorDescription) { $job.ErrorDescription } else { "Unknown error" }
+                throw "BITS transfer failed with state: $($job.JobState). Error: $errorMsg"
             }
             if ($isPsCore) {
                 $job = Get-BitsTransfer -Name $jobName -ErrorAction SilentlyContinue;
@@ -45,6 +47,11 @@ function Copy-File {
                     throw "Job cancelled by another process!";
                 }
             }
+            # Timeout check
+            if ($sw.Elapsed.TotalMinutes -gt $maxWaitMinutes) {
+                throw "Download timeout after $maxWaitMinutes minutes"
+            }
+            Start-Sleep -Milliseconds 100
         }
 
         $sw.Stop();

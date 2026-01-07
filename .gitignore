@@ -3,3 +3,4 @@
 *.msi
 *.exe
 update/
+logs/
