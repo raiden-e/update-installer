@@ -183,48 +183,55 @@ function Start-Update {
     
     Write-Log "Summary: $updateCount updates needed, $skipCount already current" -Level INFO -LogFile $LogFile
     
+    $shouldUpdateTimestamp = $false
+
     if ($jobs.Count -eq 0) {
         Write-Log "No downloads required" -Level SUCCESS -LogFile $LogFile
-        return
-    }
-    
-    # Execute downloads
-    Write-Log "Starting $($jobs.Count) downloads..." -Level INFO -LogFile $LogFile
-    try {
-        $downloadResults = Wait-JobWithProgress -Jobs $jobs -PassThru
-        
-        # Process download results
-        $successCount = 0
-        $failCount = 0
-        
-        foreach ($dlResult in $downloadResults) {
-            if ($dlResult -and $dlResult.Success) {
-                Write-Log "Successfully downloaded: $($dlResult.App)" -Level SUCCESS -LogFile $LogFile
-                $successCount++
-            } elseif ($dlResult) {
-                Write-Log "Failed to download $($dlResult.App): $($dlResult.Error)" -Level ERROR -LogFile $LogFile
-                $failCount++
+        $shouldUpdateTimestamp = $true
+    } else {
+        # Execute downloads
+        Write-Log "Starting $($jobs.Count) downloads..." -Level INFO -LogFile $LogFile
+        try {
+            $downloadResults = Wait-JobWithProgress -Jobs $jobs -PassThru
+            
+            # Process download results
+            $successCount = 0
+            $failCount = 0
+            
+            foreach ($dlResult in $downloadResults) {
+                if ($dlResult -and $dlResult.Success) {
+                    Write-Log "Successfully downloaded: $($dlResult.App)" -Level SUCCESS -LogFile $LogFile
+                    $successCount++
+                } elseif ($dlResult) {
+                    Write-Log "Failed to download $($dlResult.App): $($dlResult.Error)" -Level ERROR -LogFile $LogFile
+                    $failCount++
+                }
             }
+            
+            Write-Log "Download summary: $successCount succeeded, $failCount failed" -Level INFO -LogFile $LogFile
+            
+            if ($failCount -gt 0) {
+                Write-Log "Some downloads failed. Check log for details." -Level WARNING -LogFile $LogFile
+                Write-Log "Skipping timestamp update because $failCount download(s) failed." -Level WARNING -LogFile $LogFile
+            } else {
+                $shouldUpdateTimestamp = $true
+            }
+            
+        } catch {
+            Write-Log "Error during downloads: $_" -Level ERROR -LogFile $LogFile
+            throw
         }
-        
-        Write-Log "Download summary: $successCount succeeded, $failCount failed" -Level INFO -LogFile $LogFile
-        
-        if ($failCount -gt 0) {
-            Write-Log "Some downloads failed. Check log for details." -Level WARNING -LogFile $LogFile
-        }
-        
-    } catch {
-        Write-Log "Error during downloads: $_" -Level ERROR -LogFile $LogFile
-        throw
     }
     
     # Update timestamp
-    try {
-        Write-Log "Updating timestamp..." -Level INFO -LogFile $LogFile
-        Get-Date -Format "yyyyMMdd" | Out-File "$Path\timestamp.txt" -Encoding utf8 -Force -ErrorAction Stop
-        Write-Log "Timestamp updated successfully" -Level SUCCESS -LogFile $LogFile
-    } catch {
-        Write-Log "Failed to update timestamp: $_" -Level ERROR -LogFile $LogFile
+    if ($shouldUpdateTimestamp) {
+        try {
+            Write-Log "Updating timestamp..." -Level INFO -LogFile $LogFile
+            Get-Date -Format "yyyyMMdd" | Out-File "$Path\timestamp.txt" -Encoding utf8 -Force -ErrorAction Stop
+            Write-Log "Timestamp updated successfully" -Level SUCCESS -LogFile $LogFile
+        } catch {
+            Write-Log "Failed to update timestamp: $_" -Level ERROR -LogFile $LogFile
+        }
     }
     
     Write-Log "Update process complete!" -Level SUCCESS -LogFile $LogFile
