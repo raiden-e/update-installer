@@ -61,7 +61,7 @@ Logs go to `logs\` with levels INFO, WARNING, ERROR, SUCCESS, and DEBUG.
 
 ## Requirements
 
-- PowerShell 5.1+
+- Windows PowerShell 5.1 (Desktop)
 - BITS service running
 - Internet access and write access to the target directory
 
