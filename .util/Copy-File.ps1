@@ -19,7 +19,7 @@ function Copy-File {
                 $title = "File copy alredy running...";
                 $question = "Do you want to remove the downloaded file?";
                 $choices = "&Yes", "&No";
-                if ($isPsCore -or !([Environment]::UserInteractive) -or (($Host.UI.PromptForChoice($title, $question, $choices, 1)) -ne 0)) {
+                if ($isPsCore -or !([Environment]::UserInteractive) -or $null -eq $Host.UI -or (($Host.UI.PromptForChoice($title, $question, $choices, 1)) -ne 0)) {
                     throw "There is another process that downloads this file, abort: $From";
                 }
             }

@@ -33,7 +33,7 @@ function Start-Update {
         $confirm = Read-Host "Continue?"
         if ($confirm -notmatch "(con|y)"){
             Write-Log "User cancelled operation" -Level INFO -LogFile $LogFile
-            exit
+            return
         }
     }
 

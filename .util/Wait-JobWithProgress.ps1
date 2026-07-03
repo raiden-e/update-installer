@@ -58,7 +58,7 @@ function Wait-JobWithProgress {
             $Jobs.RemoveAt($id)
             $completed++
         }
-    } while ($timer.Elapsed.Seconds -le $TimeOut -and $Jobs)
+    } while ($timer.Elapsed.TotalSeconds -le $TimeOut -and $Jobs)
 
     # Stop the jobs not yet Completed and remove them
     $Jobs | Stop-Job -PassThru | % {
