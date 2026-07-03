@@ -48,7 +48,7 @@ function Wait-JobWithProgress {
             }
         } catch {
             Write-Progress @progress -Completed
-            $host.UI.WriteErrorLine("Job failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)")
+            Write-Warning "Job failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)"
             if ($PassThru) {
                 $null = $results.Add($null)  # Add null to maintain order
             }

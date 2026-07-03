@@ -28,11 +28,11 @@ function Start-Update {
         throw
     }
 
-    if(!$Path){
-        Write-Log '$Path not provided.' -Level WARNING -LogFile $LogFile
-        $confirm = Read-Host "Continue?"
-        if ($confirm -notmatch "(con|y)"){
-            Write-Log "User cancelled operation" -Level INFO -LogFile $LogFile
+    if (!$Path) {
+        Write-Log "Target path not provided." -Level WARNING -LogFile $LogFile
+        $Path = Read-Host "Enter target directory path"
+        if ([string]::IsNullOrWhiteSpace($Path)) {
+            Write-Log "No path provided. Aborting." -Level INFO -LogFile $LogFile
             return
         }
     }
@@ -76,7 +76,7 @@ function Start-Update {
             }
             return $name, $latest, $searchTerm, $link, $cred
         } catch {
-            $host.UI.WriteErrorLine("Error in script $($ScriptPath): $($_.Exception.Message)")
+            [Console]::Error.WriteLine("Error in script $($ScriptPath): $($_.Exception.Message)")
             throw
         }
     }
@@ -126,17 +126,17 @@ function Start-Update {
     }
 
     $downloadCode = {
-        param($from, $to, $local, $cred, $appName)
+        param($from, $to, [string[]]$removePaths, $cred, $appName)
         ${function:Copy-File} = ${using:function:Copy-File}
 
         try {
             Copy-File -From $from -To $to -Credential $cred
-            if ($local) {
-                Remove-Item $local.FullName -Force -ErrorAction Stop
+            if ($removePaths) {
+                Remove-Item $removePaths -Force -ErrorAction Stop
             }
             return @{Success = $true; App = $appName; File = $to}
         } catch {
-            $host.UI.WriteErrorLine("[$appName] Download failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)")
+            [Console]::Error.WriteLine("[$appName] Download failed: $($_.Exception.Message)`n$($_.ScriptStackTrace)")
             return @{Success = $false; App = $appName; Error = $_.Exception.Message}
         }
     }
@@ -159,22 +159,30 @@ function Start-Update {
         $cred = if ($result.length -ge 5) { $result[4] } else { $null }
         
         try {
-            $local = Get-ChildItem -Path $Path -File -Filter $searchPattern -ErrorAction SilentlyContinue
-            if ($local) {
-                if ($local.name -eq $latestFile) {
-                    Write-Log "Already latest: $appName ($latestFile)" -Level SUCCESS -LogFile $LogFile
-                    $skipCount++
-                    continue
-                } else {
-                    Write-Log "Update available: $appName ($($local.Name) -> $latestFile)" -Level INFO -LogFile $LogFile
+            $local = @(Get-ChildItem -Path $Path -File -Filter $searchPattern -ErrorAction SilentlyContinue)
+            $hasLatest = $local | Where-Object { $_.Name -eq $latestFile }
+
+            if ($hasLatest) {
+                Write-Log "Already latest: $appName ($latestFile)" -Level SUCCESS -LogFile $LogFile
+                $obsolete = @($local | Where-Object { $_.Name -ne $latestFile })
+                if ($obsolete) {
+                    Write-Log "Removing $($obsolete.Count) obsolete file(s) for ${appName}: $($obsolete.Name -join ', ')" -Level INFO -LogFile $LogFile
+                    Remove-Item $obsolete.FullName -Force -ErrorAction Stop
                 }
+                $skipCount++
+                continue
+            }
+
+            if ($local.Count -gt 0) {
+                Write-Log "Update available: $appName ($($local.Name -join ', ') -> $latestFile)" -Level INFO -LogFile $LogFile
             } else {
                 Write-Log "New download: $appName ($latestFile)" -Level INFO -LogFile $LogFile
             }
-            
+
+            $removePaths = @($local | ForEach-Object { $_.FullName })
             $to = "$Path\$latestFile"
             Write-Log "Downloading: $appName from $downloadLink" -Level INFO -LogFile $LogFile
-            $null = $jobs.Add((Start-Job -ArgumentList $downloadLink, $to, $local, $cred, $appName -ScriptBlock $downloadCode -Verbose))
+            $null = $jobs.Add((Start-Job -ArgumentList $downloadLink, $to, $removePaths, $cred, $appName -ScriptBlock $downloadCode -Verbose))
             $updateCount++
         } catch {
             Write-Log "Error processing $appName : $_" -Level ERROR -LogFile $LogFile
