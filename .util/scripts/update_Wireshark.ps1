@@ -1,3 +1,4 @@
+# Wireshark has the underscore in the filename, so that it downloads first (its slow)
 function main {
     param()
     $page = Invoke-WebRequest -UseBasicParsing "https://www.wireshark.org/download.html"

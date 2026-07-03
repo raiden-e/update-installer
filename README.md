@@ -27,7 +27,7 @@ A `timestamp.txt` file in the target directory limits runs to once per day unles
 
 ## Supported applications
 
-**Active:** 7-Zip, AutoRuns, BGInfo, Brave, Git, Notepad++, PowerToys, Process Explorer, Python, RustDesk, SumatraPDF, VLC, VS Code, Wireshark
+**Active:** 7-Zip, AutoRuns, BGInfo, Brave, Git, Notepad++, PowerToys, Process Explorer, Python, RustDesk, SumatraPDF, VLC, VS Code, VSCodium, Wireshark
 
 **Disabled** (use `-enableAll`): Audacity Portable, Chrome, Firefox, GnuPG, GPG, Office, nVidia drivers, PowerShell Core, VMware Tools, WinDirStat Portable
 
